@@ -24,34 +24,48 @@ Requirements
 Mini-guide
 ==========
 
-1. Copy `bin/quotapolicy` to `/usr/local/bin` (or elsewhere)
+If you want to customize installation, see the Makefile for options.
 
-2. Create user `quotapolicy`
+1. Create user `quotapolicy` however you like. For convenience, the Makefile
+   includes a creation command with `adduser`, so you can just use
 
-3. Add to `/etc/sudoers`:
+        make createuser
+
+   if you want.  (It makes the same assumptions as `make install`, see below.)
+
+2. Install the program:
+
+        sudo make install
+
+   This assumes you run a chrooted postfix on `/var/spool/postfix` .  If you
+   chroot it elsewhere, you'll have to set it like this:
+
+        sudo make postfix_chroot=/opt/postfix install
+
+   If you don't use chroot (why?), you'll have to choose a directory in which
+   to store the Unix socket:
+
+        sudo make socketdir=/var/run/quotapolicy install
+   
+3. Setup the daemon to run at system startup, before postfix.  Startup scripts
+   are provided for Debian, so you can just 
+
+        sudo make install_debian
+        # then edit /etc/default/quotapolicy if you want to change options
+
+4. Add to `/etc/sudoers`:
 
         quotapolicy myhost=NOPASSWD: /usr/bin/quota
 
    Make sure it works without passwords:
 
-        myuser$ sudo -u quotapolicy sudo /usr/bin/quota
-   
-4. `mkdir /var/spool/postfix/quotapolicy` (or whatever)
+        myuser$ sudo -u quotapolicy sudo /usr/bin/quota someuser
 
-5. `chown quotapolicy: /var/spool/postfix/quotapolicy`
-
-6. Setup your system to run `quotapolicy` on startup.  An `init.d` script is
-   provided for Debian-style systems:
-
-        quotapolicy$ sudo cp init.d/quotapolicy /etc/init.d/
-        quotapolicy$ sudo update-rc.d quotapolicy defaults
-        quotapolicy$ sudo /etc/init.d/quotapolicy restart
-
-8. Add to main.cf (assuming chrooted postfix):
+5. Add to Postfix `main.cf` (assuming chrooted postfix):
         smtpd_recipient_restrictions =
-          permit_mynetworks
           check_policy_service unix:quotapolicy/quotapolicy.sock
+          permit_mynetworks
           [other restrictions...]
 
-9. Restart postfix.
+6. Start the daemon and restart postfix
 
