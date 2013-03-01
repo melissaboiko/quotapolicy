@@ -97,10 +97,23 @@ stop()
 
 status()
 {
-  start-stop-daemon \
-    --pidfile "$DAEMON_HOMEDIR/$PIDFILE" \
-    --user "$DAEMON_USER" \
-    --status
+  # not in debian squeeze :(
+  #  start-stop-daemon \
+  #    --pidfile "$DAEMON_HOMEDIR/$PIDFILE" \
+  #    --user "$DAEMON_USER" \
+  #    --status
+
+  # http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
+  if test -e "$DAEMON_HOMEDIR/$PIDFILE"; then
+    pid="`cat "$DAEMON_HOMEDIR/$PIDFILE"`"
+    if ps -p $pid >/dev/null 2>/dev/null; then
+      return 0
+    else
+      return 1
+    fi
+  else
+    return 3
+  fi
 }
 
 
