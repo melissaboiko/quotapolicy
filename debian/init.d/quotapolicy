@@ -2,8 +2,8 @@
 
 ### BEGIN INIT INFO
 # Provides:          quotapolicy
-# Required-Start:    $local_fs $remote_fs $portmap $network sudo
-# Required-Stop:     $local_fs $remote_fs $portmap $network sudo
+# Required-Start:    $local_fs $remote_fs $portmap $network sudo quota quotarpc
+# Required-Stop:     $local_fs $remote_fs $portmap $network sudo quota quotarpc
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # X-Start-Before:    postfix
