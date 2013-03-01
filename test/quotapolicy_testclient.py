@@ -3,7 +3,7 @@
 import socket
 import sys
 
-sockpath = '/var/spool/postfix/quotapolicy/quotapolicy.sock'
+sockpath = '/var/spool/postfix/quotapolicy/quotapolicy.socket'
 
 recipient = sys.argv[1]
 
