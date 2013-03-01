@@ -58,7 +58,7 @@ class QuotaSocketHandler(SocketServer.StreamRequestHandler):
                 action = 'DEFER_IF_PERMIT ' \
                         + recipient \
                         + ' can\'t receive mail right now: quota exceeded' \
-                        + '(' + str(ov) + ')'
+                        + ' (' + str(ov) + ')'
 
         if c.debug: print(str(recipient) + ': sending ' + action)
         self.wfile.write('action=' + action + "\n")
