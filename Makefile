@@ -15,7 +15,7 @@ user = quotapolicy
 createuser:
 	@if ! getent passwd $(user) >/dev/null; then \
 	  adduser --system --home $(homedir) \
-		  --gecos 'Postfix quota access policy daemon' \
+		  --gecos 'Postfix access policy daemon for Unix quotas' \
 		  $(user) ; \
 	fi
 

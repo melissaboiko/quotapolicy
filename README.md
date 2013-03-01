@@ -76,7 +76,7 @@ homedir is `/var/spool/postfix/quotapolicy`.
 
 5. Add to `/etc/sudoers` (using visudo(8)):
 
-        $ quotapolicy myhost=NOPASSWD: /usr/bin/quota
+        quotapolicy myhost=NOPASSWD: /usr/bin/quota
 
    Make sure it works without passwords:
 
