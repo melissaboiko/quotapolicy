@@ -1,0 +1,132 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          quotapolicy
+# Required-Start:    $local_fs $remote_fs $portmap $network sudo
+# Required-Stop:     $local_fs $remote_fs $portmap $network sudo
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# X-Start-Before:    postfix
+# X-Stop-After:      postfix
+# Short-Description: start and stop postfix quota policy daemon
+# Description:       postfix access policy daemon for checking filesystem quotas
+### END INIT INFO
+
+# you don't have to edit here, all are overrideable on /etc/default/quotapolicy
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/usr/sbin:/bin:/usr/bin
+DAEMON=/usr/local/bin/quotapolicy
+DAEMON_HOMEDIR=/var/spool/postfix/quotapolicy
+DAEMON_USER=quotapolicy
+PIDFILE=quotapolicy.pid
+SOCKET=quotapolicy.socket
+QUOTAPATH=/usr/bin/quota
+SUDOPATH=/usr/bin/sudo
+# try to guess from postconf if empty; if fail, default is '+'
+POSTFIX_RECIPIENT_DELIMITER=''
+
+TIMEOUT=15
+
+test -f /etc/default/quotapolicy && . /etc/default/quotapolicy
+. /lib/lsb/init-functions
+
+# log_*_msg chomps final whitespace and adds a period.
+# don't end log messages with unquoted paths.
+start() {
+  if ! test -d "$DAEMON_HOMEDIR"; then
+    log_failure_msg "Quotapolicy homedir doesn't exist: '$DAEMON_HOMEDIR'"
+    log_failure_msg "Either create it, or customize '/etc/default/quotapolicy'"
+    exit 1
+  fi
+
+  if ! getent passwd "$DAEMON_USER" >/dev/null; then
+    log_failure_msg "Quotapolicy user not found: '$DAEMON_USER'"
+    log_failure_msg "Either create it,  or customize '/etc/default/quotapolicy'"
+  fi
+
+  uid="`getent passwd $DAEMON_USER | cut -d : -f 3`"
+  if ! test $uid = `stat -c '%u' $DAEMON_HOMEDIR`; then
+    log_failure_msg "Quotapolicy user '$DAEMON_USER' not the owner of homedir '$DAEMON_HOMEDIR'"
+    log_failure_msg "Either change the owner, or customize '/etc/default/quotapolicy'"
+  fi
+
+  if test -z "$POSTFIX_RECIPIENT_DELIMITER"; then
+    POSTFIX_RECIPIENT_DELIMITER="`postconf recipient_delimiter|sed -e 's/[^=]*= *//'`"
+    if test -z "$POSTFIX_RECIPIENT_DELIMITER"; then
+      POSTFIX_RECIPIENT_DELIMITER='+'
+    fi
+  fi
+
+  echo "Starting Postfix policy daemon for Unix quotas..."
+  start-stop-daemon  \
+    --pidfile "$DAEMON_HOMEDIR/$PIDFILE" \
+    --user "$DAEMON_USER" \
+    --chuid "$DAEMON_USER" \
+    --startas "$DAEMON" \
+    --start -- \
+      --homedir "$DAEMON_HOMEDIR" \
+      --pidfile "$PIDFILE" \
+      --socketfile "$SOCKET" \
+      --quotapath "$QUOTAPATH" \
+      --sudopath "$SUDOPATH" \
+      --recipient-delimiter "$POSTFIX_RECIPIENT_DELIMITER"
+  st=$?
+  if test $st -eq 0; then
+    log_success_msg "OK: listening at '$DAEMON_HOMEDIR/$SOCKET'" 
+  else
+    log_failure_msg 'Failed'
+  fi
+  return $st
+}
+
+stop()
+{
+  echo "Stopping Postfix policy daemon for Unix quotas..."
+  start-stop-daemon \
+    --pidfile "$DAEMON_HOMEDIR/$PIDFILE" \
+    --user "$DAEMON_USER" \
+    --stop \
+    --retry "$TIMEOUT"
+  st=$?
+  if test $st -eq 0; then
+    log_success_msg "OK"
+  else
+    log_failure_msg 'Failed'
+  fi
+  return $st
+}
+
+status()
+{
+  start-stop-daemon \
+    --pidfile "$DAEMON_HOMEDIR/$PIDFILE" \
+    --user "$DAEMON_USER" \
+    --status
+}
+
+
+case "$1" in
+  start)
+    start
+    exit $?
+    ;;
+  stop)
+    stop
+    exit $?
+    ;;
+  restart)
+    # soft-fail on stop
+    stop
+    start
+    exit $?
+    ;;
+  force-reload)
+    # soft-fail on stop
+    stop
+    start
+    exit $?
+    ;;
+  status)
+    status
+    exit $?
+    ;;
+esac

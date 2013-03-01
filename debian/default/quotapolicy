@@ -1,0 +1,27 @@
+#!/bin/sh
+
+# path to quotapolicy
+DAEMON=/usr/local/bin/quotapolicy
+
+# --homedir
+DAEMON_HOMEDIR=/var/spool/postfix/quotapolicy
+
+# quotapolicy user
+DAEMON_USER=quotapolicy
+
+# pidfile, relative to homedir
+PIDFILE=quotapolicy.pid
+
+# Unix socket path, relative to homedir
+SOCKET=quotapolicy.socket
+
+# Full path to quota binary
+QUOTAPATH=/usr/bin/quota
+
+# Full path to sudo binary
+SUDOPATH=/usr/bin/sudo
+
+# Postfix recipient_delimiter paramter.
+# If unset, will try to guess from postconf, and if fail, the default is '+'.
+# POSTFIX_RECIPIENT_DELIMITER='+'
+
