@@ -8,14 +8,13 @@ srcdir = .
 debian_initdir = /etc/init.d
 debian_defaultdir = /etc/default
 
-postfix_chroot = /var/spool/postfix
-socketdir = $(postfix_chroot)/quotapolicy
+homedir = /var/spool/postfix/quotapolicy
 
 user = quotapolicy
 
 createuser:
 	@if ! getent passwd $(user) >/dev/null; then \
-	  adduser --system --home $(socketdir) \
+	  adduser --system --home $(homedir) \
 		  --gecos 'Postfix quota access policy daemon' \
 		  $(user) ; \
 	fi
@@ -26,15 +25,15 @@ install:
 	  echo "Please create the user $(user), or run 'make createuser'." ;\
 	else \
 	  install -m 0755 -v $(srcdir)/bin/quotapolicy $(bindir)/ ;\
-	  mkdir -v -p $(socketdir) ;\
-	  chown -v $(user):  $(socketdir) ;\
+	  mkdir -v -p $(homedir) ;\
+	  chown -v $(user):  $(homedir) ;\
 	fi
 
 install_debian: install
-	@install -v -m 0644 $(srcdir)/debian/init.d/quotapolicy \
+	@install -v -m 0755 $(srcdir)/debian/init.d/quotapolicy \
 		$(debian_initdir)/quotapolicy
 	@install -v -m 0644 $(srcdir)/debian/default/quotapolicy \
-		$(debian_initdir)/quotapolicy
+		$(debian_defaultdir)/quotapolicy
 	update-rc.d quotapolicy defaults
 
 .PHONY: createuser install install_debian
