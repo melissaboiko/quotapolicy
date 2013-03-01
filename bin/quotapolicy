@@ -1,26 +1,24 @@
 #!/usr/bin/env python
+# run as root, and this script will change to $user and chroot to $chrootdir .
 
-import socket
+import daemon
 import SocketServer
 import sys
 import pwd
 import subprocess
 import os
+import signal
+import lockfile
+import argparse
+import atexit
 
-# make sure script user can run this under sudo, no password
-quotapath = '/usr/bin/quota'
+class DummyConfig:
+    pass
 
-# make sure the directory exists, and script user has rwx permissions.
-sockpath = '/var/spool/postfix/quotapolicy/quotapolicy.sock'
-
-# set this to the value of recipient_delimiter from postfix
-recip_del = '-'
-
-# debug = False
-debug = True
-
-
+# filled by argparse below
+c = DummyConfig()
 devnull = open(os.devnull, 'w')
+
 def overquota(user):
     try:
         pwd.getpwnam(user)
@@ -29,11 +27,10 @@ def overquota(user):
         return False
 
     try:
-        subprocess.check_call(['sudo', quotapath, user], stdout=devnull)
+        subprocess.check_call([c.sudopath, c.quotapath, user], stdout=devnull)
         return False
     except subprocess.CalledProcessError as e:
         return e.returncode
-
 
 class QuotaSocketHandler(SocketServer.StreamRequestHandler):
 
@@ -55,17 +52,17 @@ class QuotaSocketHandler(SocketServer.StreamRequestHandler):
                 break
 
         if recipient:
-            user = recipient.split('@')[0].split(recip_del)[0]
+            user = recipient.split('@')[0].split(c.recipient_delimiter)[0]
             ov = overquota(user)
             if ov:
-                action = 'DEFER_IF_PERMIT Quota exceeded: ' \
-                        + user \
+                action = 'DEFER_IF_PERMIT ' \
+                        + recipient \
+                        + ' can\'t receive mail right now: quota exceeded' \
                         + '(' + str(ov) + ')'
 
-        if debug: print(str(recipient) + ': sending ' + action)
+        if c.debug: print(str(recipient) + ': sending ' + action)
         self.wfile.write('action=' + action + "\n")
         self.wfile.write("\n")
-
 
 class ForkingUnixStreamServer(
         SocketServer.UnixStreamServer,
@@ -73,15 +70,88 @@ class ForkingUnixStreamServer(
         ):
     pass
 
-try:
-    os.unlink(sockpath)
-except OSError:
-    if os.path.exists(sockpath):
-        raise
+def cleanup(signum=None, stack=None):
+    if os.path.exists(c.sockpath):
+        os.unlink(c.sockpath)
+    if os.path.exists(c.pidpath):
+        os.unlink(c.pidpath)
 
-server = SocketServer.UnixStreamServer(sockpath, QuotaSocketHandler)
-os.chmod(sockpath, 0666)
-try:
-    server.serve_forever()
-finally:
-    os.unlink(sockpath)
+
+# parse arguments
+p = argparse.ArgumentParser()
+
+p.add_argument('-H', '--homedir', required=True,
+        help='(Required) Directory for writing files',
+        )
+
+p.add_argument('-p', '--pidfile', default='quotapolicy.pid',
+        dest='pidpath',
+        help='Pidfile, relative to HOMEDIR (default: %(default)s )')
+
+p.add_argument('-s', '--socketfile', default='quotapolicy.socket',
+        dest='sockpath',
+        help='Socket file, relative to HOMEDIR (default: %(default)s )')
+
+p.add_argument('-q', '--quotapath', default='/usr/bin/quota',
+        help='Path to quota binary (default: %(default)s )')
+
+p.add_argument('--sudopath', default='/usr/bin/sudo',
+        help='Path to sudo binary (default: %(default)s )')
+
+p.add_argument('-d', '--recipient-delimiter', default='+',
+        help='Set this to Postfix recipient_delimiter parameter')
+
+p.add_argument('--debug', action='store_true',
+        help="Don't fork; print messages to stdout")
+
+c.__dict__.update(p.parse_args().__dict__)
+
+
+# check things
+os.chdir(c.homedir)
+
+for x in c.quotapath, c.sudopath:
+    if not os.access(x, os.X_OK):
+        sys.stderr.write("ERROR: cannot run %s\n" % x)
+        sys.exit(1)
+
+atexit.register(cleanup)
+if os.path.exists(c.pidpath):
+    if c.pidpath[0] == '/':
+        abs_pidpath = c.pidpath
+    else:
+        abs_pidpath = os.path.join(c.homedir, c.pidpath)
+
+    sys.stderr.write("daemon seems to be running: %s exists\n"
+            % abs_pidpath)
+    sys.exit(1)
+
+# setup socket
+if os.path.exists(c.sockpath): os.unlink(c.sockpath)
+server = ForkingUnixStreamServer(c.sockpath, QuotaSocketHandler)
+os.chmod(c.sockpath, 0666)
+
+
+# setup daemonization
+context = daemon.DaemonContext()
+context.files_preserve=[server.fileno(), devnull]
+context.pidfile = lockfile.FileLock(c.pidpath)
+
+if c.debug:
+    context.detach_process = False
+    context.stdin = sys.stdin
+    context.stdout = sys.stdout
+    context.stderr = sys.stderr
+else:
+    context.detach_process = True
+
+with context:
+    try:
+        os.chdir(c.homedir)
+        with open(c.pidpath, 'w') as p:
+            # for start-stop-daemon etc.
+            p.write(str(os.getpid()))
+
+        server.serve_forever()
+    finally:
+        cleanup()
