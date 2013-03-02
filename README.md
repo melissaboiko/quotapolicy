@@ -1,14 +1,17 @@
-Quotapolicy: Postfix SMTP access policy for Unix filesystem quotas
-==================================================================
+Quotapolicy: Postfix SMTP access policy for Unix disk quotas
+============================================================
 
 This program is a policy dæmon to make Postfix reject emails if:
  - The recipient is an Unix user, and
  - Their filesystem quota is full.
 
-The quota check is run right during the SMTP transaction, so that Postfix won't
-have to run further processing, test for spam, call maildrop/procmail, etc. (It
-will also prevent a misconfigured procmail from silently storing messages at
-`/var/mail` or elsewhere.)  The sender receives a failure message.
+I use it with Linux ext4 diskquota over NFS, but it should work with whatever
+implementation understood by the command quota(1).  The quota check is run
+right during the SMTP transaction, so that Postfix won't have to run further
+processing, test for spam, call maildrop/procmail, etc. (It will also prevent a
+misconfigured procmail from silently storing messages at `/var/mail` or
+elsewhere.)  The sender receives a short failure message saying that the
+recipient can't receive messages right now.
 
 The program uses Postfix access policy delegation; for more info, see
 http://www.postfix.org/SMTPD_POLICY_README.html .
