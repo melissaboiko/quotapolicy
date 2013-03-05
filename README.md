@@ -89,15 +89,17 @@ homedir is `/var/spool/postfix/quotapolicy`.
    `main.cf`.  Chrooted postfix example:
 
         smtpd_recipient_restrictions =
-          check_policy_service unix:quotapolicy/quotapolicy.socket
           permit_mynetworks
+          reject_unauth_destination
+          check_policy_service unix:quotapolicy/quotapolicy.socket
           [other restrictions...]
 
    Non-chrooted example:
 
         smtpd_recipient_restrictions =
-          check_policy_service unix:/var/run/quotapolicy/quotapolicy.socket
           permit_mynetworks
+          reject_unauth_destination
+          check_policy_service unix:/var/run/quotapolicy/quotapolicy.socket
           [other restrictions...]
 
 7. Start the dæmon and restart postfix.
